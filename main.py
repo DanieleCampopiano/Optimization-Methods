@@ -1,7 +1,45 @@
+# Optimization Methods for Cybersecurity
+# Campopiano Daniele - 174624
+
 import cplex
 from cplex.exceptions import CplexError
 import os
 
+
+# POPOLAMENTO DEL PROBLEMA PER COLONNA
+def populate_by_column(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense,
+                       my_rownames, my_num_cols):
+    for j in range(my_num_cols):
+        variables = []
+        coefficients = []
+        lower_bounds = []
+        upper_bounds = []
+        types = []
+        for i in range(len(my_A)):
+            variables.append(i)
+            coefficients.append(my_A[i][j])
+            lower_bounds.append(0.0)
+            upper_bounds.append(1.0)
+            types.append(my_ctype[j])
+        for i in range(len(my_Aeq)):
+            variables.append(i + len(my_A))
+            coefficients.append(my_Aeq[i][j])
+            lower_bounds.append(0.0)
+            upper_bounds.append(1.0)
+            types.append(my_ctype[j])
+        colname = "x_" + str(j)
+        try:
+            my_prob.variables.add(obj=my_c[j], lb=my_lb[j], ub=my_ub[j], types=my_ctype[j], names=[colname])
+        except TypeError:
+            print(f"Error: my_c[{j}]={my_c[j]} is not a valid input for CPLEX variables.add() function.")
+            break
+        my_prob.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)], senses=my_sense,
+                                       rhs=[my_b], names=[colname])
+        my_prob.quadratic_constraints.add(lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)],
+                                          quad_expr=[[], [], []], sense='E', rhs=[0.0], names=[colname])
+
+
+# POPOLAMENTO DEL PROBLEMA PER RIGA
 def populate_by_row(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense,
                     my_rownames):
     if len(my_A) != len(my_b) or len(my_A[0]) != len(my_c):
@@ -54,108 +92,7 @@ def populate_by_row(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_coln
             my_prob.variables.add(obj=[my_c[j]], lb=[my_lb[j]], ub=[my_ub[j]], names=[my_colnames[j]])
 
 
-def populate_by_column(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense,
-                       my_rownames, my_num_cols):
-    for j in range(my_num_cols):
-        variables = []
-        coefficients = []
-        lower_bounds = []
-        upper_bounds = []
-        types = []
-        for i in range(len(my_A)):
-            variables.append(i)
-            coefficients.append(my_A[i][j])
-            lower_bounds.append(0.0)
-            upper_bounds.append(1.0)
-            types.append(my_ctype[j])
-        for i in range(len(my_Aeq)):
-            variables.append(i + len(my_A))
-            coefficients.append(my_Aeq[i][j])
-            lower_bounds.append(0.0)
-            upper_bounds.append(1.0)
-            types.append(my_ctype[j])
-        colname = "x_" + str(j)
-        try:
-            my_prob.variables.add(obj=my_c[j], lb=my_lb[j], ub=my_ub[j], types=my_ctype[j], names=[colname])
-        except TypeError:
-            print(f"Error: my_c[{j}]={my_c[j]} is not a valid input for CPLEX variables.add() function.")
-            break
-        my_prob.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)], senses=my_sense,
-                                       rhs=[my_b], names=[colname])
-        my_prob.quadratic_constraints.add(lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)],
-                                          quad_expr=[[], [], []], sense='E', rhs=[0.0], names=[colname])
-
-
-''' 1
-def populate_by_nonzero(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense, my_rownames):
-    my_prob.objective.set_sense(my_prob.objective.sense.maximize)
-
-    # Aggiungi variabili
-    for j, colname in enumerate(my_colnames):
-        obj = my_c[j]
-        lb = my_lb[j]
-        ub = my_ub[j]
-        ctype = my_ctype[j]
-        my_prob.variables.add(obj=[obj], lb=[lb], ub=[ub], types=ctype, names=[colname])
-
-    # Crea un dizionario per rappresentare la matrice dei coefficienti diversi da 0 del problema
-    coeffs = {}
-    for i, row_coeffs in enumerate(my_A):
-        row = {my_colnames[j]: row_coeffs[j] for j in range(len(row_coeffs)) if row_coeffs[j] != 0}
-        coeffs[i] = row
-    for i, row_coeffs in enumerate(my_Aeq):
-        row = {my_colnames[j]: row_coeffs[j] for j in range(len(row_coeffs)) if row_coeffs[j] != 0}
-        coeffs[i + len(my_A)] = row
-
-    # Aggiungi i vincoli al problema
-    for i in range(my_prob.linear_constraints.get_num()):
-        row_vars = []
-        row_coeffs = []
-        for var, coeff in coeffs[i].items():
-            row_vars.append(var)
-            row_coeffs.append(coeff)
-        my_prob.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=row_vars, val=row_coeffs)],
-                                        senses=[my_sense[i]],
-                                        names=[my_rownames[i]])
-'''
-
-''' 2
-def populate_by_nonzero(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense,
-                        my_rownames):
-    numcols = my_prob.variables.get_num()
-    for j in range(numcols):
-        variables = []
-        coefficients = []
-        lower_bounds = []
-        upper_bounds = []
-        types = []
-        for i in range(len(my_A)):
-            if my_A[i][j] != 0:
-                variables.append(i)
-                coefficients.append(my_A[i][j])
-                lower_bounds.append(0.0)
-                upper_bounds.append(1.0)
-                types.append(my_ctype[j])
-        for i in range(len(my_Aeq)):
-            if my_Aeq[i][j] != 0:
-                variables.append(i + len(my_A))
-                coefficients.append(my_Aeq[i][j])
-                lower_bounds.append(0.0)
-                upper_bounds.append(1.0)
-                types.append(my_ctype[j])
-        colname = "x_" + str(j)
-        try:
-            my_prob.variables.add(obj=my_c[j], lb=my_lb[j], ub=my_ub[j], types=my_ctype[j], names=[colname])
-        except TypeError:
-            print(f"Error: my_c[{j}]={my_c[j]} is not a valid input for CPLEX variables.add() function.")
-            break
-        my_prob.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)], senses=my_sense,
-                                       rhs=[my_b], names=[colname])
-        my_prob.quadratic_constraints.add(lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)],
-                                          quad_expr=[[], [], []], sense='E', rhs=[0.0], names=[colname])
-'''
-
-
+# POPOLAMENTO DEL PROBLEMA PER COEFFIIENTI DIVERSI DA ZERO
 def populate_by_nonzero(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense, my_rownames):
     # Verifica che my_beq non sia vuota
     if not my_beq:
@@ -178,28 +115,27 @@ def populate_by_nonzero(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_
         if my_c[j] != 0.0:
             my_prob.objective.set_linear([(my_colnames[j], my_c[j])])
 
-
-
+#
 def resolution_mps(pop_method, my_prob):
     try:
         # Estrae rhs, il vettore beq e b
-        beq = my_prob.quadratic_constraints.get_rhs()
-        b = my_prob.linear_constraints.get_rhs()
-        c = my_prob.objective.get_linear()
+        beq = my_prob.quadratic_constraints.get_rhs()  # Estrae i termini quadrati
+        b = my_prob.linear_constraints.get_rhs()  # Estrae i termini lineari
+        c = my_prob.objective.get_linear()  # Estrae la funzione obiettivo
 
         # Estrae i limiti inferiori e superiori delle variabili
-        lb = my_prob.variables.get_lower_bounds()
-        ub = my_prob.variables.get_upper_bounds()
+        lb = my_prob.variables.get_lower_bounds()  # Estrae i limiti inferiori
+        ub = my_prob.variables.get_upper_bounds()  # Estrae i limiti superiori
 
         # Estrae le informazioni di colonne e righe
-        numcols = my_prob.variables.get_num()
-        colnames = my_prob.variables.get_names()
-        numrows = my_prob.linear_constraints.get_num()
-        rownames = my_prob.linear_constraints.get_names()
+        numcols = my_prob.variables.get_num()  # Estrae il numero di colonne
+        colnames = my_prob.variables.get_names()  # Estrae i nomi delle colonne
+        numrows = my_prob.linear_constraints.get_num()  # Estrae il numero di righe
+        rownames = my_prob.linear_constraints.get_names()  # Estrae i nomi delle righe
 
         # Estrae ctype e sense
-        ctype = my_prob.variables.get_types()
-        sense = my_prob.linear_constraints.get_senses()
+        ctype = my_prob.variables.get_types()  # Estrae il tipo di variabile
+        sense = my_prob.linear_constraints.get_senses()  # Estrae il tipo di vincolo
 
         rows = []
         cols = []
@@ -207,6 +143,7 @@ def resolution_mps(pop_method, my_prob):
         A = []
         Aeq = []
 
+        # Estrae la matrice del vincolo in forma di triple (riga, colonna, valore)
         for i in range(numrows):
             row = my_prob.linear_constraints.get_rows(i)
             for j in range(len(row.ind)):
@@ -219,6 +156,7 @@ def resolution_mps(pop_method, my_prob):
                 A.append(vals.copy())
             vals.clear()
 
+        # Popola il problema di ottimizzazione a seconda del metodo scelto
         if pop_method == "r":
             populate_by_row(my_prob, A, Aeq, c, lb, ub, ctype, colnames, b, beq, sense, rownames)
         elif pop_method == "c":
@@ -228,15 +166,13 @@ def resolution_mps(pop_method, my_prob):
         else:
             raise ValueError('pop_method must be one of "r", "c" or "n"')
 
-        my_prob.solve()
+        my_prob.solve()  # Risolve il problema di ottimizzazione
+
     except CplexError as exc:
         print(exc)
         return
 
-    print()
-    # solution.get_status() returns an integer code
     print("Solution status = ", my_prob.solution.get_status(), ":", end=' ')
-    # the following line prints the corresponding string
     print(my_prob.solution.status[my_prob.solution.get_status()])
     print("Solution value  = ", my_prob.solution.get_objective_value())
 
@@ -250,23 +186,27 @@ def resolution_mps(pop_method, my_prob):
 
 
 if __name__ == "__main__":
+
     myProb = cplex.Cplex()
 
     mps_file = "Mps Files/blend2.mps"
 
     if os.path.exists(mps_file):
-        print("File exists!")
+        print("\nAnalizzo il file nella path " + mps_file)
     else:
-        print("File not found:", mps_file)
+        print("\nFile non trovato nella path " + mps_file)
 
+    # COLONNA
     myProb.read(mps_file)
-    print("      r          generate problem by row")
-    resolution_mps("r", myProb)
-
-    myProb.read(mps_file)
-    print("      c          generate problem by column")
+    print("\n      c          generate problem by column\n")
     resolution_mps("c", myProb)
 
+    # RIGA
     myProb.read(mps_file)
-    print("      n          generate problem by nonzero")
+    print("\n      r          generate problem by row\n")
+    resolution_mps("r", myProb)
+
+    # COEFFICIENTI DIVERSI DA ZERO
+    myProb.read(mps_file)
+    print("\n      n          generate problem by nonzero\n")
     resolution_mps("n", myProb)
