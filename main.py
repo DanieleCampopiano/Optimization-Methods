@@ -18,30 +18,31 @@ def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, 
         upper_bounds = []                   # limite superiore delle variabili coinvolte
         types = []                          # tipologia delle variabili coinvolte
 
-        # popolamento delle variabili, dei coefficienti e dei limiti per i vincoli di tipo <=
+        # popolamento delle variabili, dei coefficienti e dei limiti per i vincoli di tipo "<="
         for i in range(len(my_A)):
             variables.append(i)
             coefficients.append(my_A[i][j])
-            lower_bounds.append(0.0)  # le variabili sono sempre >= 0
-            upper_bounds.append(1.0)  # le variabili sono sempre <= 1
+            lower_bounds.append(0.0)                            # le variabili sono sempre >= 0
+            upper_bounds.append(1.0)                            # le variabili sono sempre <= 1
             types.append(my_ctype[j])
 
-        # popolamento delle variabili, dei coefficienti e dei limiti per i vincoli di tipo ==
+        # popolamento delle variabili, dei coefficienti e dei limiti per i vincoli di tipo "=="
         for i in range(len(my_Aeq)):
             variables.append(i + len(my_A))
             coefficients.append(my_Aeq[i][j])
-            lower_bounds.append(0.0)  # le variabili sono sempre >= 0
-            upper_bounds.append(1.0)  # le variabili sono sempre <= 1
+            lower_bounds.append(0.0)                            # le variabili sono sempre >= 0
+            upper_bounds.append(1.0)                            # le variabili sono sempre <= 1
             types.append(my_ctype[j])
 
-        colname = "x_" + str(j)  # nome della variabile
+        colname = "x_" + str(j)                                 # nome della variabile
+
         try:
             my_prob.variables.add(
-                obj=my_c[j],  # coefficiente dell'obiettivo
-                lb=my_lb[j],  # limite inferiore della variabile
-                ub=my_ub[j],  # limite superiore della variabile
-                types=my_ctype[j],  # tipologia della variabile
-                names=[colname]  # nome della variabile
+                obj=my_c[j],                                    # coefficiente dell'obiettivo
+                lb=my_lb[j],                                    # limite inferiore della variabile
+                ub=my_ub[j],                                    # limite superiore della variabile
+                types=my_ctype[j],                              # tipologia della variabile
+                names=[colname]                                 # nome della variabile
             )
         except TypeError:
             break
@@ -49,24 +50,24 @@ def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, 
         # aggiunta del vincolo lineare di tipo <=
         my_prob.linear_constraints.add(
             lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)],
-            senses=my_sense,  # tipo di vincolo (<= o ==)
-            rhs=[my_b],  # lato destro del vincolo
-            names=[colname]  # nome del vincolo
+            senses=my_sense,
+            rhs=[my_b],
+            names=[colname]
         )
 
         # aggiunta del vincolo quadratico di tipo ==
         my_prob.quadratic_constraints.add(
             lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)],
-            quad_expr=[[], [], []],  # vincolo quadratico vuoto
-            sense='E',  # tipo di vincolo (==)
-            rhs=[0.0],  # lato destro del vincolo
-            names=[colname]  # nome del vincolo
+            quad_expr=[[], [], []],
+            sense='E',
+            rhs=[0.0],
+            names=[colname]
         )
 
 
 # POPOLAMENTO DEL PROBLEMA PER RIGA
-def populateByRow(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense,
-                  my_rownames):
+def populateByRow(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense, my_rownames):
+
     if len(my_A) != len(my_b) or len(my_A[0]) != len(my_c):
         return
 
@@ -78,6 +79,7 @@ def populateByRow(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnam
     numcols = len(my_c)
     numrows = len(my_b)
 
+    # Popolare i vincoli lineari di tipo "<=" o ">="
     for i in range(numrows):
         row = []
         row_eq = []
@@ -89,37 +91,43 @@ def populateByRow(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnam
                 vals.append(val)
                 row.append(j)
         if my_sense[i] == 'E':
+            # Aggiunta del vincolo lineare di tipo "=="
             my_prob.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=row, val=vals)],
                                            senses=[my_sense[i]], rhs=[my_beq[i]], names=[my_rownames[i]])
-            print("1")
         else:
+            # Aggiunta del vincolo lineare di tipo "<=" o ">="
             my_prob.linear_constraints.add(lin_expr=[cplex.SparsePair(ind=row, val=vals)],
                                            senses=[my_sense[i]], rhs=[my_b[i]], names=[my_rownames[i]])
-            print("2")
         vals.clear()
         row.clear()
 
+    # Ciclo for per popolare i vincoli quadratici di tipo "=="
     for i in range(len(my_Aeq)):
         row_eq = []
         for j in range(numcols):
             val = my_Aeq[i][j]
             if val != 0:
                 row_eq.append(j)
+        # Aggiunta del vincolo quadratico di tipo "=="
         my_prob.quadratic_constraints.add(lin_expr=[cplex.SparsePair(ind=row_eq, val=my_Aeq[i])],
                                           rhs=[my_beq[i]], sense='E', name='qc' + str(i + 1))
         row_eq.clear()
 
+    # Ciclo for per popolare le variabili
     for j in range(numcols):
         if my_ctype[j] == 'C':
+            # Aggiunta della variabile continua
             my_prob.variables.add(obj=[my_c[j]], lb=[my_lb[j]], ub=[my_ub[j]], types=[my_ctype[j]],
                                   names=[my_colnames[j]])
         else:
+            # Aggiunta della variabile binaria o intera
             my_prob.variables.add(obj=[my_c[j]], lb=[my_lb[j]], ub=[my_ub[j]], names=[my_colnames[j]])
 
 
+
 # POPOLAMENTO DEL PROBLEMA PER COEFFIIENTI DIVERSI DA ZERO
-def populateByNonZero(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense,
-                      my_rownames):
+def populateByNonZero(my_prob, my_A, my_Aeq, my_c, my_colnames, my_b, my_beq, my_sense, my_rownames):
+
     # Verifica che my_beq non sia vuota
     if not my_beq:
         return
@@ -189,9 +197,7 @@ def solveProblem(pop_method, my_prob):
         elif pop_method == "c":
             populateByColumn(my_prob, A, Aeq, c, lb, ub, ctype, b, sense, numcols)
         elif pop_method == "n":
-            populateByNonZero(my_prob, A, Aeq, c, lb, ub, ctype, colnames, b, beq, sense, rownames)
-        else:
-            raise ValueError('pop_method must be one of "r", "c" or "n"')
+            populateByNonZero(my_prob, A, Aeq, c, colnames, b, beq, sense, rownames)
 
         my_prob.solve()  # Risolve il problema di ottimizzazione
 
