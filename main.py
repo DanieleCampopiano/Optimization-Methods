@@ -8,7 +8,7 @@ from cplex.exceptions import CplexError
 import os
 
 
-# POPOLAMENTO DEL PROBLEMA PER COLONNA: VINCOLI => RIGHE | VARIABILI => COLONNE
+# POPOLAMENTO DEL PROBLEMA PER COLONNA: VINCOLI sono dati da RIGHE | VARIABILI sono date da COLONNE
 def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, my_sense, my_num_cols):
 
     for j in range(my_num_cols):
