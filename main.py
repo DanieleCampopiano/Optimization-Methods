@@ -241,4 +241,3 @@ if __name__ == "__main__":
     # COEFFICIENTI DIVERSI DA ZERO
     print("\n      n          generate problem by nonzero\n")
     #solveProblem("n", myProb)
-

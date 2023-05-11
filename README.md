@@ -1,6 +1,5 @@
 # OPTIMIZATION FOR CYBERSECURITY
 
-
 # DESCRIZIONE:
 
 Progetto realizzato per il corso di Optimization Methods for CyberSecurity con l'obiettivo di:
