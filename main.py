@@ -8,7 +8,7 @@ from cplex.exceptions import CplexError
 import os
 
 
-# POPOLAMENTO DEL PROBLEMA PER COLONNA
+# POPOLAMENTO DEL PROBLEMA PER COLONNA: VINCOLI => RIGHE | VARIABILI => COLONNE
 def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, my_sense, my_num_cols):
 
     for j in range(my_num_cols):
@@ -22,16 +22,16 @@ def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, 
         for i in range(len(my_A)):
             variables.append(i)
             coefficients.append(my_A[i][j])
-            lower_bounds.append(0.0)                            # le variabili sono sempre >= 0
-            upper_bounds.append(1.0)                            # le variabili sono sempre <= 1
+            lower_bounds.append(0.0)
+            upper_bounds.append(1.0)
             types.append(my_ctype[j])
 
         # popolamento delle variabili, dei coefficienti e dei limiti per i vincoli di tipo "=="
         for i in range(len(my_Aeq)):
             variables.append(i + len(my_A))
             coefficients.append(my_Aeq[i][j])
-            lower_bounds.append(0.0)                            # le variabili sono sempre >= 0
-            upper_bounds.append(1.0)                            # le variabili sono sempre <= 1
+            lower_bounds.append(0.0)
+            upper_bounds.append(1.0)
             types.append(my_ctype[j])
 
         colname = "x_" + str(j)                                 # nome della variabile
@@ -47,7 +47,7 @@ def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, 
         except TypeError:
             break
 
-        # aggiunta del vincolo lineare di tipo <=
+        # aggiunta del vincolo lineare di tipo <= al problema
         my_prob.linear_constraints.add(
             lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)],
             senses=my_sense,
@@ -55,7 +55,7 @@ def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, 
             names=[colname]
         )
 
-        # aggiunta del vincolo quadratico di tipo ==
+        # aggiunta del vincolo quadratico di tipo == al problema
         my_prob.quadratic_constraints.add(
             lin_expr=[cplex.SparsePair(ind=variables, val=coefficients)],
             quad_expr=[[], [], []],
@@ -65,7 +65,7 @@ def populateByColumn(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_b, 
         )
 
 
-# POPOLAMENTO DEL PROBLEMA PER RIGA
+# POPOLAMENTO DEL PROBLEMA PER RIGA: 'L' = "<=" | 'E' = "==" | 'G' = ">="
 def populateByRow(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnames, my_b, my_beq, my_sense, my_rownames):
 
     if len(my_A) != len(my_b) or len(my_A[0]) != len(my_c):
@@ -125,7 +125,7 @@ def populateByRow(my_prob, my_A, my_Aeq, my_c, my_lb, my_ub, my_ctype, my_colnam
 
 
 
-# POPOLAMENTO DEL PROBLEMA PER COEFFIIENTI DIVERSI DA ZERO
+# POPOLAMENTO DEL PROBLEMA PER COEFFICIENTI DIVERSI DA ZERO
 def populateByNonZero(my_prob, my_A, my_Aeq, my_c, my_colnames, my_b, my_beq, my_sense, my_rownames):
 
     # Verifica che my_beq non sia vuota
@@ -151,36 +151,33 @@ def populateByNonZero(my_prob, my_A, my_Aeq, my_c, my_colnames, my_b, my_beq, my
 
 
 # RISOLUZIONE DEL PROBLEMA
-def solveProblem(pop_method, my_prob):
+def solveProblem(popMethod, prob):
 
     try:
-        # Estrae rhs, il vettore beq e b
-        beq = my_prob.quadratic_constraints.get_rhs()               # Estrae i termini quadrati
-        b = my_prob.linear_constraints.get_rhs()                    # Estrae i termini lineari
-        c = my_prob.objective.get_linear()                          # Estrae la funzione obiettivo
+        beq = prob.quadratic_constraints.get_rhs()               # Estrae i termini quadrati
+        b = prob.linear_constraints.get_rhs()                    # Estrae i termini lineari
+        c = prob.objective.get_linear()                          # Estrae la funzione obiettivo
 
-        # Estrae i limiti inferiori e superiori delle variabili
-        lb = my_prob.variables.get_lower_bounds()                   # Estrae i limiti inferiori
-        ub = my_prob.variables.get_upper_bounds()                   # Estrae i limiti superiori
+        lb = prob.variables.get_lower_bounds()                   # Estrae i limiti inferiori
+        ub = prob.variables.get_upper_bounds()                   # Estrae i limiti superiori
 
-        # Estrae le informazioni di colonne e righe
-        numcols = my_prob.variables.get_num()                       # Estrae il numero di colonne
-        colnames = my_prob.variables.get_names()                    # Estrae i nomi delle colonne
-        numrows = my_prob.linear_constraints.get_num()              # Estrae il numero di righe
-        rownames = my_prob.linear_constraints.get_names()           # Estrae i nomi delle righe
+        numcols = prob.variables.get_num()                       # Estrae il numero di colonne
+        colnames = prob.variables.get_names()                    # Estrae i nomi delle colonne
+        numrows = prob.linear_constraints.get_num()              # Estrae il numero di righe
+        rownames = prob.linear_constraints.get_names()           # Estrae i nomi delle righe
 
-        ctype = my_prob.variables.get_types()                        # Estrae il tipo di variabile
-        sense = my_prob.linear_constraints.get_senses()              # Estrae il tipo di vincolo
+        ctype = prob.variables.get_types()                        # Estrae il tipo di variabile
+        sense = prob.linear_constraints.get_senses()              # Estrae il tipo di vincolo (<=, >=, =)
 
         rows = []
         cols = []
-        vals = []
-        A = []
-        Aeq = []
+        vals = []                                                    # Lista dei valori della matrice
+        A = []                                                       # Matrice dei coefficienti di disuguaglianza
+        Aeq = []                                                     # Matrice dei coefficienti di uguaglianza
 
         # Estrae la matrice del vincolo in forma di triple (riga, colonna, valore)
         for i in range(numrows):
-            row = my_prob.linear_constraints.get_rows(i)
+            row = prob.linear_constraints.get_rows(i)
             for j in range(len(row.ind)):
                 rows.append(i)
                 cols.append(row.ind[j])
@@ -191,28 +188,28 @@ def solveProblem(pop_method, my_prob):
                 A.append(vals.copy())
             vals.clear()
 
-        # Popola il problema di ottimizzazione a seconda del metodo scelto
-        if pop_method == "r":
-            populateByRow(my_prob, A, Aeq, c, lb, ub, ctype, colnames, b, beq, sense, rownames)
-        elif pop_method == "c":
-            populateByColumn(my_prob, A, Aeq, c, lb, ub, ctype, b, sense, numcols)
-        elif pop_method == "n":
-            populateByNonZero(my_prob, A, Aeq, c, colnames, b, beq, sense, rownames)
+        # Popola il problema di ottimizzazione per riga, colonna o coefficienti diversi da zero
+        if popMethod == "r":
+            populateByRow(prob, A, Aeq, c, lb, ub, ctype, colnames, b, beq, sense, rownames)
+        elif popMethod == "c":
+            populateByColumn(prob, A, Aeq, c, lb, ub, ctype, b, sense, numcols)
+        elif popMethod == "n":
+            populateByNonZero(prob, A, Aeq, c, colnames, b, beq, sense, rownames)
 
-        my_prob.solve()  # Risolve il problema di ottimizzazione
+        prob.solve()                                 # Risolve il problema di ottimizzazione
 
     except CplexError as exc:
         print(exc)
         return
 
     print("\n")
-    print("Solution status = ", my_prob.solution.get_status(), ":", end=' ')
-    print(my_prob.solution.status[my_prob.solution.get_status()])
-    print("Solution value  = ", my_prob.solution.get_objective_value())
+    print("Solution status = ", prob.solution.get_status(), ":", end=' ')
+    print(prob.solution.status[prob.solution.get_status()])
+    print("Solution value  = ", prob.solution.get_objective_value())               # Valore della funzione obiettivo
     print("\n")
 
-    slack = my_prob.solution.get_linear_slacks()
-    x = my_prob.solution.get_values()
+    slack = prob.solution.get_linear_slacks()
+    x = prob.solution.get_values()
 
     for j in range(numrows):
         print("Row %d:  Slack = %10f" % (j, slack[j]))
@@ -231,23 +228,16 @@ if __name__ == "__main__":
     else:
         print("\nFile non trovato nella path " + mps_file)
 
-    print("\n| - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |")
+    myProb.read(mps_file)
 
     # COLONNA
-    myProb.read(mps_file)
     print("\n      c          generate problem by column\n")
     solveProblem("c", myProb)
 
-    print("\n| - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |")
-
     # RIGA
-    myProb.read(mps_file)
     print("\n      r          generate problem by row\n")
-    solveProblem("r", myProb)
-
-    print("\n| - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |")
+    #solveProblem("r", myProb)
 
     # COEFFICIENTI DIVERSI DA ZERO
-    myProb.read(mps_file)
     print("\n      n          generate problem by nonzero\n")
-    solveProblem("n", myProb)
+    #solveProblem("n", myProb)

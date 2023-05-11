@@ -73,7 +73,7 @@ _**prob.variables.get_upper_bounds():**_
 
 7. Aggiunge le variabili del problema, distinguendo tra variabili continue e variabili binarie/interne.
 
-# POPOLMENTO PER COEFFICIENTI DIVERSI DA ZERO
+# POPOLAMENTO PER COEFFICIENTI DIVERSI DA ZERO
 1. Controlla che my_beq non sia vuota.
 
 2. Controlla che la lunghezza di my_beq sia maggiore o uguale a numrows.
